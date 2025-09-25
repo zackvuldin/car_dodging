@@ -1,172 +1,126 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Car Dodger</title>
-  <style>
-    body { margin: 0; background: #222; overflow: hidden; }
-    canvas { display: block; margin: auto; background: #333; }
-    #score { position: absolute; top: 10px; left: 10px; color: white; font-size: 20px; font-family: Arial; }
-  </style>
+<meta charset="UTF-8">
+<title>Car Dodger</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #333;
+    font-family: sans-serif;
+    color: white;
+    user-select: none;
+  }
+  canvas {
+    display: block;
+    background: #555;
+    margin: 0 auto;
+  }
+  #score {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 24px;
+    font-weight: bold;
+  }
+</style>
 </head>
 <body>
-  <div id="score">Score: 0</div>
-  <canvas id="gameCanvas" width="500" height="700"></canvas>
+<div id="score">Score: 0</div>
+<canvas id="gameCanvas" width="500" height="700"></canvas>
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-  <script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-    const scoreDisplay = document.getElementById("score");
+const lanes = 5;
+const laneWidth = canvas.width / lanes;
 
-    const laneCount = 5;
-    const laneWidth = canvas.width / laneCount;
-    const carWidth = 60;
-    const carHeight = 100;
+let player = {
+    lane: 2,
+    y: canvas.height - 100,
+    width: laneWidth * 0.6,
+    height: 80,
+    color: "blue"
+};
 
-    let player = {
-      lane: 2, // start in middle lane (0–4)
-      y: canvas.height - 120,
-    };
+let cars = [];
+let spawnTimer = 0;
+let speed = 5;
+let score = 0;
 
-    let obstacles = [];
-    let powerUps = [];
-    let score = 0;
-    let gameOver = false;
-    let speed = 5;
-    let powerUpActive = false;
-    let powerUpTimer = 0;
+function drawPlayer() {
+    ctx.fillStyle = player.color;
+    ctx.fillRect(player.lane * laneWidth + laneWidth * 0.2, player.y, player.width, player.height);
+}
 
-    function drawLaneMarkers() {
-      ctx.strokeStyle = "#aaa";
-      ctx.lineWidth = 2;
-      for (let i = 1; i < laneCount; i++) {
-        ctx.setLineDash([20, 20]);
+function drawCars() {
+    ctx.fillStyle = "red";
+    cars.forEach(car => {
+        ctx.fillRect(car.lane * laneWidth + laneWidth * 0.2, car.y, car.width, car.height);
+    });
+}
+
+function drawLanes() {
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+    for (let i = 1; i < lanes; i++) {
         ctx.beginPath();
         ctx.moveTo(i * laneWidth, 0);
         ctx.lineTo(i * laneWidth, canvas.height);
         ctx.stroke();
-      }
-      ctx.setLineDash([]);
     }
+}
 
-    function drawPlayer() {
-      // Blue Corvette (stylized)
-      ctx.fillStyle = "#007BFF";
-      const x = player.lane * laneWidth + (laneWidth - carWidth)/2;
-      ctx.fillRect(x, player.y, carWidth, carHeight);
-
-      // Details for Corvette
-      ctx.fillStyle = "#000";
-      ctx.fillRect(x + 10, player.y + 10, carWidth - 20, 20); // windshield
-      ctx.fillRect(x + 10, player.y + 70, carWidth - 20, 20); // rear window
-    }
-
-    function drawObstacles() {
-      obstacles.forEach(o => {
-        ctx.fillStyle = "#888"; // typical sedan gray
-        const x = o.lane * laneWidth + (laneWidth - carWidth)/2;
-        ctx.fillRect(x, o.y, carWidth, carHeight);
-        ctx.fillStyle = "#000";
-        ctx.fillRect(x + 10, o.y + 10, carWidth - 20, 20); // windshield
-        ctx.fillRect(x + 10, o.y + 70, carWidth - 20, 20); // rear window
-      });
-    }
-
-    function drawPowerUps() {
-      powerUps.forEach(p => {
-        ctx.fillStyle = "gold";
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, 15, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = "#fff";
-        ctx.stroke();
-      });
-    }
-
-    function spawnObstacle() {
-      const lane = Math.floor(Math.random() * laneCount);
-      obstacles.push({ lane, y: -120 });
-    }
-
-    function spawnPowerUp() {
-      const lane = Math.floor(Math.random() * laneCount);
-      const x = lane * laneWidth + laneWidth/2;
-      powerUps.push({ x, y: -50 });
-    }
-
-    function updateObstacles() {
-      obstacles.forEach(o => o.y += speed);
-
-      obstacles.forEach(o => {
-        if (o.lane === player.lane && o.y + carHeight > player.y && o.y < player.y + carHeight) {
-          if (!powerUpActive) {
-            gameOver = true;
-          }
+function updateCars() {
+    for (let i = cars.length - 1; i >= 0; i--) {
+        cars[i].y += speed;
+        if (cars[i].y > canvas.height) {
+            cars.splice(i, 1);
+            score++;
+            document.getElementById("score").innerText = "Score: " + score;
+        } else if (
+            cars[i].lane === player.lane &&
+            cars[i].y + cars[i].height > player.y &&
+            cars[i].y < player.y + player.height
+        ) {
+            alert("Game Over! Score: " + score);
+            document.location.reload();
         }
-      });
-
-      obstacles = obstacles.filter(o => {
-        if (o.y > canvas.height) {
-          score++;
-          scoreDisplay.textContent = "Score: " + score;
-          return false;
-        }
-        return true;
-      });
     }
+}
 
-    function updatePowerUps() {
-      powerUps.forEach(p => p.y += speed);
-
-      powerUps.forEach(p => {
-        const px = player.lane * laneWidth + laneWidth/2;
-        if (Math.abs(p.x - px) < laneWidth/2 && p.y + 15 > player.y && p.y < player.y + carHeight) {
-          powerUpActive = true;
-          powerUpTimer = 300; // frames
-        }
-      });
-
-      powerUps = powerUps.filter(p => p.y < canvas.height);
+function spawnCar() {
+    if (spawnTimer <= 0) {
+        cars.push({
+            lane: Math.floor(Math.random() * lanes),
+            y: -100,
+            width: laneWidth * 0.6,
+            height: 80
+        });
+        spawnTimer = 50 - Math.min(score, 30); // faster spawn as score increases
+    } else {
+        spawnTimer--;
     }
+}
 
-    function gameLoop() {
-      if (gameOver) {
-        ctx.fillStyle = "white";
-        ctx.font = "40px Arial";
-        ctx.fillText("Game Over", canvas.width/2 - 100, canvas.height/2);
-        return;
-      }
+function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawLanes();
+    drawPlayer();
+    drawCars();
+    updateCars();
+    spawnCar();
+    requestAnimationFrame(gameLoop);
+}
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      drawLaneMarkers();
+document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft" && player.lane > 0) player.lane--;
+    if (e.key === "ArrowRight" && player.lane < lanes - 1) player.lane++;
+});
 
-      drawPlayer();
-      drawObstacles();
-      drawPowerUps();
-      updateObstacles();
-      updatePowerUps();
-
-      if (powerUpActive) {
-        ctx.fillStyle = "rgba(255, 215, 0, 0.3)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        powerUpTimer--;
-        if (powerUpTimer <= 0) powerUpActive = false;
-      }
-
-      speed += 0.001; // gradually increase speed
-
-      requestAnimationFrame(gameLoop);
-    }
-
-    document.addEventListener("keydown", e => {
-      if (e.key === "ArrowLeft" && player.lane > 0) player.lane--;
-      if (e.key === "ArrowRight" && player.lane < laneCount - 1) player.lane++;
-    });
-
-    setInterval(spawnObstacle, 1200);
-    setInterval(spawnPowerUp, 8000);
-
-    gameLoop();
-  </script>
+gameLoop();
+</script>
 </body>
 </html>
